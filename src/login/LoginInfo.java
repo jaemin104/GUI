@@ -12,17 +12,23 @@ import java.awt.event.ActionListener;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Vector;
 import java.awt.event.ActionEvent;
 import javax.swing.JList;
+import javax.swing.JOptionPane;
 import javax.swing.JSpinner;
 import javax.swing.JComboBox;
 import javax.swing.JTable;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.table.DefaultTableModel;
 
 import db.DbBasic;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class LoginInfo {
 
@@ -35,7 +41,7 @@ public class LoginInfo {
 	private JTextField tfGrade;
 	private JTable table;
 	private Connection conn;
-	
+	private final DefaultTableModel tableModel = new DefaultTableModel();
 	
 
 	/**
@@ -58,8 +64,9 @@ public class LoginInfo {
 	 * Create the application.
 	 */
 	public LoginInfo() {
-		initialize();
 		conn = DbBasic.init();
+		initialize();
+		refreshTable();
 	}
 	
 	
@@ -78,6 +85,7 @@ public class LoginInfo {
 		frame.getContentPane().add(lblNewLabel);
 		
 		tfId = new JTextField();
+		tfId.setEditable(false);
 		tfId.setBounds(81, 60, 130, 26);
 		frame.getContentPane().add(tfId);
 		tfId.setColumns(10);
@@ -103,8 +111,21 @@ public class LoginInfo {
 		JButton btnNewButton = new JButton("save");
 		btnNewButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				//infoSave();
-				//
+				String sql = "INSERT INTO loginInfo (username, password, dept, grade) VALUES (?, ?, ?, ?)";
+				try {
+					PreparedStatement statement = conn.prepareStatement(sql);
+					statement.setString(1, tfUsername.getText());
+					statement.setString(2, tfPassword.getText());
+					statement.setString(3, tfDept.getText());
+					statement.setString(4, tfGrade.getText());
+					statement.execute();
+					JOptionPane.showMessageDialog(null, "Data Saved");
+					statement.close();
+				} catch (SQLException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				refreshTable();
 			}
 
 			
@@ -144,25 +165,12 @@ public class LoginInfo {
 		JButton btnNewButton_1_1 = new JButton("load data");
 		btnNewButton_1_1.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				String sql = "SELECT * FROM LoginInfo";
-				try {
-					PreparedStatement statement = conn.prepareStatement(sql);
-					ResultSet rs = statement.executeQuery();
-					while (rs.next()) {
-						System.out.println(rs.getString(1));
-						System.out.println(rs.getString(2));
-						System.out.println(rs.getString(3));
-						System.out.println(rs.getString(4));
-					}
-					
-					statement.close();
-					rs.close();
-					
-				} catch (SQLException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
+				refreshTable();
 			}
+
+			
+
+			
 		});
 		btnNewButton_1_1.setBounds(455, 5, 124, 29);
 		frame.getContentPane().add(btnNewButton_1_1);
@@ -190,7 +198,31 @@ public class LoginInfo {
 		scrollPane.setBounds(223, 39, 356, 269);
 		frame.getContentPane().add(scrollPane);
 		
-		table = new JTable();
+		table = new JTable(tableModel);
+		table.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				int row = table.getSelectedRow();
+				String id = table.getModel().getValueAt(row, 0).toString();
+				
+				String sql = "SELECT * FROM LoginInfo WHERE id = ?";
+				try {
+					PreparedStatement statement = conn.prepareStatement(sql);
+					statement.setString(1, id);
+					ResultSet rs = statement.executeQuery();
+					while(rs.next()) {
+						tfId.setText(rs.getString(1));
+						tfUsername.setText(rs.getString(2));
+						tfPassword.setText(rs.getString(3));
+						tfDept.setText(rs.getString(4));
+						tfGrade.setText(rs.getString(5));
+					}
+				} catch (SQLException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+			}
+		});
 		scrollPane.setViewportView(table);
 	}
 
@@ -210,5 +242,42 @@ public class LoginInfo {
 		tfPassword.setText("");
 		tfDept.setText("");
 		tfGrade.setText("");
+	}
+	
+	private void setTablefromDB(ResultSet rs) throws SQLException {
+		ResultSetMetaData metaData = rs.getMetaData(); // 메타데이터 정보 가져오기
+		
+		Vector<String> columns = new Vector<String>(); // 컬럼 이름을 저장할 벡터
+		int columnCount = metaData.getColumnCount(); 
+		for (int i = 1; i <= columnCount; i++) {  
+			columns.add(metaData.getColumnName(i)); // 이름 벡터에 메타정보로부터 컬럼 이름 가져와 추가하기
+		}
+		
+		Vector<Vector<Object>> data = new Vector<Vector<Object>>(); // 2차원 벡터 만들기
+		while(rs.next()) {
+			Vector<Object> vector = new Vector<Object>(); // 한 레코드를 담을 벡터
+			for (int i = 1; i <= columnCount; i++) { 
+				vector.add(rs.getObject(i)); // 벡터에 각 컬럼 데이터 추가하기
+			}
+			data.add(vector); // 레코드를 데이터 벡터에 추가
+		}
+		tableModel.setDataVector(data, columns); // 테이블모델에 데이터와 컬럼 추가
+	}
+	
+	private void refreshTable() {
+		String sql = "SELECT * FROM LoginInfo";
+		try {
+			PreparedStatement statement = conn.prepareStatement(sql);
+			ResultSet rs = statement.executeQuery();
+			
+			setTablefromDB(rs);
+			
+			statement.close();
+			rs.close();
+			
+		} catch (SQLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 	}
 }
