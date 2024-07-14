@@ -29,6 +29,9 @@ import javax.swing.table.DefaultTableModel;
 import db.DbBasic;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import javax.swing.DefaultComboBoxModel;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 
 public class LoginInfo {
 
@@ -36,12 +39,14 @@ public class LoginInfo {
 	private JTextField tfId;
 	private JTextField tfUsername;
 	private JTextField tfPassword;
-	private JTextField textField_3;
+	private JTextField tfSearch;
 	private JTextField tfDept;
 	private JTextField tfGrade;
 	private JTable table;
 	private Connection conn;
 	private final DefaultTableModel tableModel = new DefaultTableModel();
+	private JComboBox cbCategory;
+	private JComboBox cbName;
 	
 
 	/**
@@ -67,8 +72,11 @@ public class LoginInfo {
 		conn = DbBasic.init();
 		initialize();
 		refreshTable();
+		fillComboBox();
 	}
 	
+	
+
 	
 
 	/**
@@ -114,7 +122,7 @@ public class LoginInfo {
 				String sql = "INSERT INTO loginInfo (username, password, dept, grade) VALUES (?, ?, ?, ?)";
 				try {
 					PreparedStatement statement = conn.prepareStatement(sql);
-					statement.setString(1, tfUsername.getText());
+					statement.setString(1, tfUsername.getText()); // '김재민'
 					statement.setString(2, tfPassword.getText());
 					statement.setString(3, tfDept.getText());
 					statement.setString(4, tfGrade.getText());
@@ -126,6 +134,7 @@ public class LoginInfo {
 					e1.printStackTrace();
 				}
 				refreshTable();
+				fillComboBox();
 			}
 
 			
@@ -145,20 +154,41 @@ public class LoginInfo {
 		textArea_1.setBounds(97, 194, 114, 114);
 		frame.getContentPane().add(textArea_1);
 		
-		JComboBox comboBox = new JComboBox();
-		comboBox.setBounds(0, 6, 176, 27);
-		frame.getContentPane().add(comboBox);
+		cbCategory = new JComboBox();
+		cbCategory.setModel(new DefaultComboBoxModel(new String[] {"id", "username", "password", "dept", "grade"}));
+		cbCategory.setBounds(0, 6, 176, 27);
+		frame.getContentPane().add(cbCategory);
 		
-		JComboBox comboBox_1 = new JComboBox();
-		comboBox_1.setBounds(0, 34, 211, 27);
-		frame.getContentPane().add(comboBox_1);
+		cbName = new JComboBox();
+		cbName.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				String username = (String) cbName.getSelectedItem();
+				System.out.println(username);
+			}
+		});
+		cbName.setBounds(0, 34, 211, 27);
+		frame.getContentPane().add(cbName);
 		
-		textField_3 = new JTextField();
-		textField_3.setBounds(188, 5, 178, 26);
-		frame.getContentPane().add(textField_3);
-		textField_3.setColumns(10);
+		tfSearch = new JTextField();
+		tfSearch.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyReleased(KeyEvent e) {
+				search();
+				//refreshTable();
+			}
+
+			
+		});
+		tfSearch.setBounds(188, 5, 178, 26);
+		frame.getContentPane().add(tfSearch);
+		tfSearch.setColumns(10);
 		
 		JButton btnNewButton_1 = new JButton("search");
+		btnNewButton_1.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				search();
+			}
+		});
 		btnNewButton_1.setBounds(367, 5, 94, 29);
 		frame.getContentPane().add(btnNewButton_1);
 		
@@ -271,6 +301,43 @@ public class LoginInfo {
 			ResultSet rs = statement.executeQuery();
 			
 			setTablefromDB(rs);
+			
+			statement.close();
+			rs.close();
+			
+		} catch (SQLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+	}
+	
+	private void search() {
+		String category = (String) cbCategory.getSelectedItem();
+		String search = tfSearch.getText();
+		String sql = "SELECT * from LoginInfo li WHERE " + category + " LIKE ?";
+		try {
+			PreparedStatement statement = conn.prepareStatement(sql);
+			statement.setString(1, "%"+search+"%");
+			ResultSet rs = statement.executeQuery();
+			setTablefromDB(rs);
+			statement.close();
+			rs.close();
+		} catch (SQLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+	}
+	
+	private void fillComboBox() {
+		cbName.removeAllItems();
+		String sql = "select username from LoginInfo";
+		try {
+			PreparedStatement statement = conn.prepareStatement(sql);
+			ResultSet rs = statement.executeQuery();
+			
+			while(rs.next()) {
+				cbName.addItem(rs.getString(1));
+			}
 			
 			statement.close();
 			rs.close();
